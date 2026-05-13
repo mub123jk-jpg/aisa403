@@ -1,6 +1,6 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Plus, MessageSquare, Trash2, BookOpen } from "lucide-react";
+import { Plus, MessageSquare, Trash2, Sparkles } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -22,13 +22,11 @@ import {
   type ThreadMeta,
 } from "@/lib/storage";
 import novaLogo from "@/assets/nova-logo.png";
-import { KnowledgeDialog } from "./knowledge-dialog";
 
 export function AppSidebar() {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [threads, setThreads] = useState<ThreadMeta[]>([]);
-  const [knowledgeOpen, setKnowledgeOpen] = useState(false);
 
   const refresh = () => setThreads(loadThreads());
 
@@ -61,17 +59,29 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="px-4 py-4">
-        <Link to="/" className="flex items-center gap-2">
-          <img
-            src={novaLogo}
-            alt="Nova logo"
-            width={32}
-            height={32}
-            className="h-8 w-8"
-          />
-          <div className="flex flex-col">
-            <span className="text-sm font-semibold tracking-tight">Nova</span>
-            <span className="text-xs text-muted-foreground">Your AI</span>
+        <Link to="/" className="flex items-center gap-2.5">
+          <div
+            className="flex h-9 w-9 items-center justify-center rounded-lg shadow-[var(--shadow-glow)]"
+            style={{ background: "var(--gradient-nova)" }}
+          >
+            <img
+              src={novaLogo}
+              alt=""
+              width={28}
+              height={28}
+              className="h-7 w-7"
+            />
+          </div>
+          <div className="flex flex-col leading-tight">
+            <span
+              className="text-base font-semibold tracking-tight bg-clip-text text-transparent"
+              style={{ backgroundImage: "var(--gradient-nova)" }}
+            >
+              Nova
+            </span>
+            <span className="text-[11px] text-muted-foreground">
+              Always thinking
+            </span>
           </div>
         </Link>
       </SidebarHeader>
@@ -80,8 +90,11 @@ export function AppSidebar() {
         <div className="px-3 pb-2">
           <Button
             onClick={handleNew}
-            className="w-full justify-start gap-2"
-            style={{ background: "var(--gradient-nova)", color: "var(--primary-foreground)" }}
+            className="w-full justify-start gap-2 border-0 font-medium shadow-[var(--shadow-glow)] hover:opacity-95"
+            style={{
+              background: "var(--gradient-nova)",
+              color: "var(--primary-foreground)",
+            }}
           >
             <Plus className="h-4 w-4" />
             New chat
@@ -129,21 +142,12 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="px-3 pb-4">
-        <Button
-          variant="outline"
-          className="w-full justify-start gap-2"
-          onClick={() => setKnowledgeOpen(true)}
-        >
-          <BookOpen className="h-4 w-4" />
-          Knowledge base
-        </Button>
-        <p className="mt-2 px-1 text-[10px] text-muted-foreground">
-          Saved in this browser only
-        </p>
+      <SidebarFooter className="px-4 pb-4">
+        <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-card/50 px-3 py-2 text-xs text-muted-foreground">
+          <Sparkles className="h-3.5 w-3.5 text-primary" />
+          <span>Powered by Nova intelligence</span>
+        </div>
       </SidebarFooter>
-
-      <KnowledgeDialog open={knowledgeOpen} onOpenChange={setKnowledgeOpen} />
     </Sidebar>
   );
 }

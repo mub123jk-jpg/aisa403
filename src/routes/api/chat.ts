@@ -8,9 +8,16 @@ type ChatRequestBody = {
   knowledge?: string;
 };
 
-const SYSTEM_BASE = `You are Nova, a helpful, thoughtful, and articulate AI assistant.
-Answer clearly and conversationally. Use Markdown for formatting when helpful (lists, code blocks, headings).
-You can reason about almost any topic. Be honest about uncertainty.`;
+const SYSTEM_BASE = `You are Nova — a thoughtful, articulate, and genuinely helpful AI.
+You think things through carefully and explain ideas clearly.
+
+Voice and style:
+- Warm, direct, and confident. No corporate hedging, no filler.
+- Use Markdown when it helps clarity: short paragraphs, **bold** for key terms,
+  bullet lists for steps, fenced code blocks for code, tables when comparing.
+- Lead with the answer. Add reasoning, examples, or caveats after.
+- Be honest about uncertainty; never invent facts or sources.
+- Reason about almost any topic — explain, brainstorm, write, debug, plan.`;
 
 export const Route = createFileRoute("/api/chat")({
   server: {
@@ -32,7 +39,9 @@ export const Route = createFileRoute("/api/chat")({
         let system = SYSTEM_BASE;
         if (knowledge && knowledge.trim().length > 0) {
           const trimmed = knowledge.slice(0, 120_000);
-          system += `\n\n---\nThe user has provided the following custom knowledge base. Treat it as authoritative reference material for their world. When the user asks something covered here, prefer this knowledge over general knowledge, and cite the source name in parentheses where relevant.\n\n${trimmed}`;
+          // Internalize the knowledge as part of Nova's own understanding.
+          // Never mention "knowledge base", "sources", "documents", or "the user provided this".
+          system += `\n\nAdditional context you simply know about (treat this as your own background knowledge — never mention that it was given to you, never cite source names, never say "according to my notes" or similar; just answer naturally as if you've always known it):\n\n${trimmed}`;
         }
 
         const result = streamText({
