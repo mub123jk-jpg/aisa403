@@ -331,7 +331,7 @@ export const MessageResponse = memo(
         className
       )}
       plugins={streamdownPlugins}
-      animation={{ type: "character", duration: 220, timingFunction: "ease-out" }}
+      animated={{ animation: "fadeIn", sep: "char", duration: 220, stagger: 10 }}
       parseIncompleteMarkdown
       {...props}
     />
