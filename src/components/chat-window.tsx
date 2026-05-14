@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
-import { Sparkles } from "lucide-react";
+import { Download, Loader2, Sparkles, Volume2, VolumeX } from "lucide-react";
 import {
   Conversation,
   ConversationContent,
@@ -21,6 +21,7 @@ import {
   type PromptInputMessage,
 } from "@/components/ai-elements/prompt-input";
 import { Shimmer } from "@/components/ai-elements/shimmer";
+import { Button } from "@/components/ui/button";
 import {
   loadMessages,
   saveMessages,
@@ -32,14 +33,206 @@ import novaLogo from "@/assets/nova-logo.png";
 import { toast } from "sonner";
 
 const SUGGESTIONS = [
-  "Explain a hard idea simply",
-  "Help me draft something",
-  "Brainstorm ideas with me",
-  "Walk me through a plan",
+  "Draw me a neon astronaut on Mars",
+  "Search what's new in AI today",
+  "Build a downloadable HTML starfield",
+  "Explain quantum computing for a kid",
 ];
 
+function downloadHtml(filename: string, html: string) {
+  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+function SpeakButton({ text }: { text: string }) {
+  const [state, setState] = useState<"idle" | "loading" | "playing">("idle");
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const stop = () => {
+    audioRef.current?.pause();
+    audioRef.current = null;
+    setState("idle");
+  };
+
+  const speak = async () => {
+    if (state === "playing") return stop();
+    setState("loading");
+    try {
+      const r = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      if (!r.ok) throw new Error(await r.text());
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      audio.onended = () => {
+        setState("idle");
+        URL.revokeObjectURL(url);
+      };
+      audio.onerror = () => {
+        setState("idle");
+        toast.error("Couldn't play audio");
+      };
+      await audio.play();
+      setState("playing");
+    } catch (e: any) {
+      setState("idle");
+      toast.error(e?.message?.slice(0, 120) || "TTS failed");
+    }
+  };
+
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      onClick={speak}
+      className="h-7 gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground"
+    >
+      {state === "loading" ? (
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      ) : state === "playing" ? (
+        <VolumeX className="h-3.5 w-3.5" />
+      ) : (
+        <Volume2 className="h-3.5 w-3.5" />
+      )}
+      {state === "playing" ? "Stop" : "Listen"}
+    </Button>
+  );
+}
+
+function ToolPart({ part }: { part: any }) {
+  const type: string = part.type;
+  const state: string = part.state;
+  const name = type.startsWith("tool-") ? type.slice(5) : type;
+  const out = part.output;
+
+  if (state !== "output-available") {
+    const label =
+      name === "generate_image"
+        ? "Drawing image…"
+        : name === "web_search"
+          ? "Searching the web…"
+          : name === "make_html_file"
+            ? "Building HTML file…"
+            : name === "explain_for_kid"
+              ? "Simplifying…"
+              : "Working…";
+    return (
+      <div className="my-2 flex items-center gap-2 rounded-lg border border-border/60 bg-card/40 px-3 py-2 text-xs text-muted-foreground">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        {label}
+      </div>
+    );
+  }
+
+  if (!out?.ok) {
+    return (
+      <div className="my-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+        {out?.error || "Tool failed"}
+      </div>
+    );
+  }
+
+  if (name === "generate_image") {
+    return (
+      <figure className="my-3 overflow-hidden rounded-xl border border-border/60 bg-card/40">
+        <img
+          src={out.imageUrl}
+          alt={out.prompt}
+          className="h-auto w-full max-w-lg"
+        />
+        <figcaption className="px-3 py-2 text-xs text-muted-foreground">
+          {out.prompt}
+        </figcaption>
+      </figure>
+    );
+  }
+
+  if (name === "web_search") {
+    return (
+      <div className="my-3 rounded-xl border border-border/60 bg-card/40 p-3 text-sm">
+        <div className="mb-2 text-xs font-medium text-muted-foreground">
+          Web search · {out.query}
+        </div>
+        <ul className="space-y-2">
+          {out.results.slice(0, 5).map((r: any, i: number) => (
+            <li key={i} className="text-sm">
+              {r.url ? (
+                <a
+                  href={r.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-medium text-primary hover:underline"
+                >
+                  {r.title}
+                </a>
+              ) : (
+                <span className="font-medium">{r.title}</span>
+              )}
+              <p className="text-xs text-muted-foreground">{r.snippet}</p>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
+
+  if (name === "explain_for_kid") {
+    return (
+      <div className="my-3 rounded-xl border border-primary/30 bg-primary/5 p-4">
+        <div className="mb-1 text-xs font-medium text-primary">
+          For a kid · {out.topic}
+        </div>
+        <p className="text-sm leading-relaxed text-foreground">
+          {out.explanation}
+        </p>
+        <div className="mt-2 flex items-center gap-2">
+          <SpeakButton text={out.explanation} />
+          <span className="text-[10px] text-muted-foreground">
+            Magnus voice
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  if (name === "make_html_file") {
+    return (
+      <div className="my-3 flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-card/40 p-3">
+        <div className="min-w-0">
+          <div className="truncate text-sm font-medium">{out.title}</div>
+          <div className="truncate text-xs text-muted-foreground">
+            {out.filename} · {Math.round((out.html?.length ?? 0) / 1024)} KB
+          </div>
+        </div>
+        <Button
+          type="button"
+          size="sm"
+          onClick={() => downloadHtml(out.filename, out.html)}
+          className="gap-1.5"
+        >
+          <Download className="h-3.5 w-3.5" />
+          Download
+        </Button>
+      </div>
+    );
+  }
+
+  return null;
+}
+
 export function ChatWindow({ threadId }: { threadId: string }) {
-  // Initialize empty for SSR-safe render, hydrate from storage in effect.
   const [initial, setInitial] = useState<UIMessage[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const [knowledge, setKnowledge] = useState<string>("");
@@ -66,7 +259,6 @@ export function ChatWindow({ threadId }: { threadId: string }) {
     },
   });
 
-  // persist messages + thread title
   useEffect(() => {
     if (!hydrated || messages.length === 0) return;
     saveMessages(threadId, messages);
@@ -74,7 +266,7 @@ export function ChatWindow({ threadId }: { threadId: string }) {
     let title = "New chat";
     if (firstUser) {
       const txt = firstUser.parts
-        .map((p) => (p.type === "text" ? p.text : ""))
+        .map((p: any) => (p.type === "text" ? p.text : ""))
         .join(" ")
         .trim();
       if (txt) title = txt.slice(0, 50);
@@ -83,7 +275,6 @@ export function ChatWindow({ threadId }: { threadId: string }) {
     window.dispatchEvent(new Event("nova:threads-changed"));
   }, [messages, threadId, hydrated]);
 
-  // focus textarea
   useEffect(() => {
     inputRef.current?.focus();
   }, [threadId, status]);
@@ -126,8 +317,8 @@ export function ChatWindow({ threadId }: { threadId: string }) {
                     How can I help today?
                   </h1>
                   <p className="max-w-md text-sm text-muted-foreground">
-                    I'm Nova. Ask me anything — I'll think it through and stream
-                    a clear answer back to you.
+                    I'm Nova. Ask me anything — I can draw, search, build
+                    downloadable HTML, and explain things out loud.
                   </p>
                 </div>
                 <div className="mt-2 grid w-full max-w-xl grid-cols-1 gap-2 sm:grid-cols-2">
@@ -147,9 +338,14 @@ export function ChatWindow({ threadId }: { threadId: string }) {
             </ConversationEmptyState>
           ) : (
             messages.map((m) => {
-              const text = m.parts
-                .map((p) => (p.type === "text" ? p.text : ""))
-                .join("");
+              const textParts = m.parts.filter(
+                (p: any) => p.type === "text",
+              ) as any[];
+              const toolParts = m.parts.filter((p: any) =>
+                p.type?.startsWith("tool-"),
+              );
+              const text = textParts.map((p) => p.text).join("");
+
               return (
                 <Message key={m.id} from={m.role}>
                   {m.role === "assistant" ? (
@@ -167,7 +363,15 @@ export function ChatWindow({ threadId }: { threadId: string }) {
                         />
                       </div>
                       <div className="nova-prose min-w-0 flex-1">
-                        <MessageResponse>{text}</MessageResponse>
+                        {toolParts.map((p: any, i: number) => (
+                          <ToolPart key={i} part={p} />
+                        ))}
+                        {text && <MessageResponse>{text}</MessageResponse>}
+                        {text && (
+                          <div className="mt-1 -ml-2 opacity-0 transition group-hover:opacity-100">
+                            <SpeakButton text={text} />
+                          </div>
+                        )}
                       </div>
                     </div>
                   ) : (
@@ -192,9 +396,7 @@ export function ChatWindow({ threadId }: { threadId: string }) {
                     className="h-5 w-5"
                   />
                 </div>
-                <Shimmer className="pt-1.5 text-sm">
-                  Nova is thinking…
-                </Shimmer>
+                <Shimmer className="pt-1.5 text-sm">Nova is thinking…</Shimmer>
               </div>
             </Message>
           )}
@@ -213,10 +415,7 @@ export function ChatWindow({ threadId }: { threadId: string }) {
             onSubmit={handleSubmit}
             className="rounded-2xl border-border/70 bg-card/60 shadow-lg backdrop-blur transition focus-within:border-primary/50 focus-within:shadow-[var(--shadow-glow)]"
           >
-            <PromptInputTextarea
-              ref={inputRef}
-              placeholder="Message Nova…"
-            />
+            <PromptInputTextarea ref={inputRef} placeholder="Message Nova…" />
             <PromptInputFooter className="justify-end">
               <PromptInputSubmit
                 status={status}
