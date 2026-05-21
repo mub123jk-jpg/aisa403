@@ -8,7 +8,7 @@ import {
   type UIMessage,
 } from "ai";
 import { z } from "zod";
-import { createLovableAiGatewayProvider } from "@/lib/ai-gateway";
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 
 type ChatRequestBody = {
   messages?: unknown;
@@ -52,13 +52,22 @@ export const Route = createFileRoute("/api/chat")({
           return new Response("Messages are required", { status: 400 });
         }
 
-        const key = process.env.LOVABLE_API_KEY;
-        if (!key) {
-          return new Response("Missing LOVABLE_API_KEY", { status: 500 });
+        const openrouterKey = process.env.OPENROUTER_API_KEY;
+        if (!openrouterKey) {
+          return new Response("Missing OPENROUTER_API_KEY", { status: 500 });
         }
+        const key = process.env.LOVABLE_API_KEY; // still used by image tool below
 
-        const gateway = createLovableAiGatewayProvider(key);
-        const model = gateway("google/gemini-2.5-flash-lite");
+        const openrouter = createOpenAICompatible({
+          name: "openrouter",
+          baseURL: "https://openrouter.ai/api/v1",
+          headers: {
+            Authorization: `Bearer ${openrouterKey}`,
+            "HTTP-Referer": "https://lovable.dev",
+            "X-Title": "Nova",
+          },
+        });
+        const model = openrouter("deepseek/deepseek-chat-v3.1:free");
 
         let system = SYSTEM_BASE;
         if (knowledge && knowledge.trim().length > 0) {
@@ -77,6 +86,9 @@ export const Route = createFileRoute("/api/chat")({
                 .describe("Vivid, specific description of the image to generate."),
             }),
             execute: async ({ prompt }) => {
+              if (!key) {
+                return { ok: false, error: "Image generation unavailable (LOVABLE_API_KEY not set)." };
+              }
               try {
                 const r = await fetch(
                   "https://ai.gateway.lovable.dev/v1/chat/completions",
