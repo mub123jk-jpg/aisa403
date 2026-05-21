@@ -86,6 +86,9 @@ export const Route = createFileRoute("/api/chat")({
                 .describe("Vivid, specific description of the image to generate."),
             }),
             execute: async ({ prompt }) => {
+              if (!key) {
+                return { ok: false, error: "Image generation unavailable (LOVABLE_API_KEY not set)." };
+              }
               try {
                 const r = await fetch(
                   "https://ai.gateway.lovable.dev/v1/chat/completions",
