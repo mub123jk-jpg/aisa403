@@ -291,10 +291,9 @@ export function ChatWindow({ threadId }: { threadId: string }) {
   const isLoading = status === "submitted" || status === "streaming";
 
   const handleDownloadChat = () => {
-    const escapeHtml = (str) =>
-      str.replace(/[&<>"']/g, (c) =>
-        ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]
-      );
+    const escapeMap: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+    const escapeHtml = (str: string) =>
+      str.replace(/[&<>"']/g, (c) => escapeMap[c]);
     const rows = messages
       .map((m) => {
         const text = (m.parts || [])

@@ -58,7 +58,7 @@ export const Route = createFileRoute("/api/chat")({
         }
 
         const gateway = createLovableAiGatewayProvider(key);
-        const model = gateway("google/gemini-3-flash-preview");
+        const model = gateway("google/gemini-2.5-flash-lite");
 
         let system = SYSTEM_BASE;
         if (knowledge && knowledge.trim().length > 0) {
